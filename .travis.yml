@@ -1,0 +1,37 @@
+language: generic
+sudo: required
+services:
+    - docker
+
+before_install:
+    - docker build -t rumlauf/react-test -f ./client/Dockerfile.dev ./client
+
+script:    
+    - docker run -e CI=true rumlauf/react-test npm test  
+
+after_success:
+    - docker build -t rumlauf/multi-client ./client
+    - docker build -t rumlauf/multi-nginx ./nginx
+    - docker build -t rumlauf/multi-server ./server
+    - docker build -t rumlauf/multi-worker ./worker
+# Log in to the Docker CLI
+    - echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_ID" --password-stdin
+# Take those images and push them to Docker Hub
+    - docker push rumlauf/multi-client
+    - docker push rumlauf/multi-nginx
+    - docker push rumlauf/multi-server
+    - docker push rumlauf/multi-worker
+
+deploy:
+    edge: true
+    provider: elasticbeanstalk
+    region: us-east-2
+    app: multi-docker
+    env: MultiDocker-env
+    bucket_name: elasticbeanstalk-us-east-2-487437176526
+    bucket_path: docker-multi
+    on:
+        branch: master
+    access_key_id: $AWS_ACCESS_KEY
+    secret_access_key: 
+        secure: $AWS_SECRET_KEY
